@@ -1,0 +1,10 @@
+#ignore cached info
+__pycache__/
+.vscode/
+#ignores all logs
+*.log
+#ignore sample file in sample
+samples/*.txt
+#ignore models except for the default one
+*.json
+!default.json
