@@ -1,4 +1,4 @@
-import markovify, nltk, datetime, time, twitter, json
+import markovify, nltk, datetime, time, twitter, json, sqlite3
 import logging 
 logging.basicConfig(filename="log.log", level=logging.INFO,
 					filemode="w")
@@ -58,3 +58,28 @@ class Database:
 		logging.info("Post added!!!!!!!!")
 
 
+################################################################
+#Here we will handle json models and define how to save
+#and load these markov chain models into the file
+################################################################
+
+def save_model_as_json(text_model, file_name):
+	model_json = text_model.to_json()
+	with open('models\\' + file_name + 'json', 'w') as outfile:
+		json.dump(model_json, outfile)
+
+def load_model_from_json(file_name):
+	with open('models\\' + file_name + 'json') as json_file:
+		return markovify.Text.from_json(json.load(json_file))
+
+def get_machado():
+	return load_model_from_json('default')
+
+def get_sabino():
+	return load_model_from_json('sabino')
+
+def model_and_save(file_name):#also returns the model
+	with open('samples\\' + file_name + '.txt', encoding = 'utf-8') as file:
+		model = markovify.Text(file.read(), state_size = 3)
+	save_model_as_json(model, file_name)
+	return model
