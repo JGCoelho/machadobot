@@ -1,6 +1,11 @@
 #ignore cached info
 __pycache__/
 .vscode/
+#ignore config
+config.ini
+config.json
+#ignore database
+db.db
 #ignores all logs
 *.log
 #ignore sample file in sample
