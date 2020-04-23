@@ -3,13 +3,12 @@ __pycache__/
 .vscode/
 #ignore config
 config.ini
-config.json
 #ignore database
 db.db
 #ignores all logs
 *.log
 #ignore sample file in sample
-samples/*.txt
+
 #ignore models except for the default one
 *.json
 !default.json
