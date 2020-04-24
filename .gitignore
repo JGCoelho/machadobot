@@ -12,3 +12,5 @@ samples/*.txt
 #ignore models except for the default one
 *.json
 !default.json
+#ignore the setup, for now
+setup.py

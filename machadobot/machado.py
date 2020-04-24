@@ -1,5 +1,5 @@
 import markovify, nltk, datetime, time, twitter, json, sqlite3
-import re, random, logging, os
+import re, random, logging 
 logging.basicConfig(filename="log.log", level=logging.INFO,
 					filemode="w")
 
@@ -73,11 +73,11 @@ class Database:
 
 def save_model_as_json(text_model, file_name):
 	model_json = text_model.to_json()
-	with open(os.path.join('docs','models', file_name + '.json'), 'w') as outfile:
+	with open('models\\' + file_name + '.json', 'w') as outfile:
 		json.dump(model_json, outfile)
 
 def load_model_from_json(file_name):
-	with open(os.path.join('docs','models', file_name + '.json')) as json_file:
+	with open('models\\' + file_name + '.json') as json_file:
 		return markovify.Text.from_json(json.load(json_file))
 
 def get_machado():
@@ -140,13 +140,8 @@ def make_a_message(model, model_name):
 	return message
 
 def test_each_model():
-	assert "Guimaraes" in MODELS
-	assert "Machado" in MODELS
-	assert "Sabino" in MODELS
 	for model_name in MODELS:
-		print("Estamos testado o seguinte modelo: {}".format(model_name))
 		model = load_model_from_json(model_name)
 		print(make_a_message(model, model_name))
-	time.sleep(100)
 
 test_each_model()
