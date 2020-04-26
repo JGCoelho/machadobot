@@ -1,8 +1,10 @@
-import markovify, nltk, datetime, time, twitter, json, sqlite3
-import re, random, logging 
+# -*- coding: cp1252 -*-
+import markovify, spacy, datetime, time, tweepy, json, sqlite3
+import re, random, logging
+nlp = spacy.load('pt')
+from os import path
 logging.basicConfig(filename="log.log", level=logging.INFO,
 					filemode="w")
-
 
 #first we read the configurations from the config file and set them
 with open("config.json") as json_data_file:
@@ -20,14 +22,6 @@ FULL_NAME = {
 	"Sabino" : "Fernando Sabino",
 	"Guimaraes" : "Guimarães Rosa"
 }
-
-def login():
-	api = twitter.Api(consumer_key= CONSUMER_KEY,
-				  consumer_secret= CONSUMER_SECRET,
-				  access_token_key= ACCESS_TOKEN_KEY,
-				  access_token_secret= ACCESS_TOKEN_SECRET)
-	return api
-
 
 #we have a sqlite3 database db.db for the posts
 #"CREATE TABLE posts (id INTEGER PRIMARY KEY, body TEXT, date INTEGER)"
@@ -54,18 +48,30 @@ class Database:
 	def adapt_datetime(self,ts):
 		return int(time.mktime(ts.timetuple()))
 
-	def add_to(self, comment, completion):
-		logging.info("Adding post to database...")
+	def add_to(self, post):
+		logging.info("Adicionando à base de dados...")
 		self.cursor.execute("INSERT INTO posts (body, date) "\
-			"VALUES (?, ?)", (comment.body,\
+			"VALUES (?, ?)", (post,\
 			self.adapt_datetime(datetime.date.today())))
 		self.connection.commit()
 		logging.info("Post added!!!!!!!!")
 	
 	def retrieve_msg(self):
-		self.cursor.excute("SELECT * FROM posts")
+		pass#nothing for now
 
+db = Database()
 
+def login():
+	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
+	auth.set_access_token(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET)
+	api = tweepy.API(auth, wait_on_rate_limit=True,
+    	wait_on_rate_limit_notify=True)
+	try:
+		api.verify_credentials()
+	except Exception as e:
+		logging.critical(e)
+	return api
+	
 ################################################################
 #Here we will handle json models and define how to save
 #and load these markov chain models into the file
@@ -77,7 +83,7 @@ def save_model_as_json(text_model, file_name):
 		json.dump(model_json, outfile)
 
 def load_model_from_json(file_name):
-	with open('models\\' + file_name + '.json') as json_file:
+	with open('docs\\models\\' + file_name + '.json') as json_file:
 		return markovify.Text.from_json(json.load(json_file))
 
 def get_machado():
@@ -95,15 +101,11 @@ def model_and_save(file_name):#also returns the model
 	save_model_as_json(model, file_name)
 	return model
 
-
 ################################################################
 #Methods for logging, using the api and making posts.
 ################################################################
 flawed_utf_pattern = re.compile('\\.*')
 quote_pattern = re.compile("\"")
-
-def make_post(content):
-	pass#nothing for now
 
 def choose_model():
 	model_name = random.choice(MODELS)
@@ -139,9 +141,38 @@ def make_a_message(model, model_name):
 	message = "{}: \"{}\"".format(FULL_NAME[model_name], entire_sentence)
 	return message
 
+def make_post():
+	api = login()
+	model, model_name = choose_model()
+	msg = make_a_message(model, model_name)
+	api.update_status(msg)
+	db.add_to(msg)
+	
 def test_each_model():
 	for model_name in MODELS:
 		model = load_model_from_json(model_name)
 		print(make_a_message(model, model_name))
 
-test_each_model()
+def test_login():
+	api = login()
+	timeline = api.home_timeline()
+	for tweet in timeline:
+		print(f"{tweet.user.name} said {tweet.text}")
+	user = api.get_user("MikezGarcia")
+	print("User details:")
+	print(user.name)
+	print(user.description)
+	print(user.location)
+
+	print("Last 20 Followers:")
+	for follower in user.followers():
+		print(follower.name)
+
+def test_make_post():
+	make_post()
+	db.show_content()
+	
+#test_each_model()
+#test_login()
+test_make_post()
+

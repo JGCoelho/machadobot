@@ -7,10 +7,10 @@ config.json
 db.db
 #ignores all logs
 *.log
-#ignore sample file in sample
-samples/*.txt
+##ignore sample file in sample
+docs/samples/*.txt
 #ignore models except for the default one
 *.json
-!default.json
+!*/default.json
 #ignore the setup, for now
 setup.py
