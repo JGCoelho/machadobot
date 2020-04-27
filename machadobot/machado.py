@@ -6,6 +6,7 @@ nlp = spacy.load('pt')
 from os import path
 logging.basicConfig(filename="docs\\log.log", level=logging.INFO,
 					filemode="w")
+logger = logging.getLogger()
 
 #first we read the configurations from the config file and set them
 with open("config.json") as json_data_file:
@@ -53,12 +54,12 @@ class Database:
 		return int(time.mktime(ts.timetuple()))
 
 	def add_to(self, post):
-		logging.info("Adicionando à base de dados...")
+		logger.info("Adicionando à base de dados...")
 		self.cursor.execute("INSERT INTO posts (body, date) "\
 			"VALUES (?, ?)", (post,\
 			self.adapt_datetime(datetime.date.today())))
 		self.connection.commit()
-		logging.info("Post added!!!!!!!!")
+		logger.info("Post added!!!!!!!!")
 	
 	def retrieve_msg(self):
 		pass#nothing for now
@@ -72,12 +73,12 @@ db = Database()
 nlp = spacy.load('pt')
 
 class MarkovPT(markovify.Text):
-    def word_split(self, sentence):
-        return ["::".join((word.orth_, word.pos_)) for word in nlp(sentence)]
+	def word_split(self, sentence):
+		return ["::".join((word.orth_, word.pos_)) for word in nlp(sentence)]
 
-    def word_join(self, words):
-        sentence = " ".join(word.split("::")[0] for word in words)
-        return sentence
+	def word_join(self, words):
+		sentence = " ".join(word.split("::")[0] for word in words)
+		return sentence
 
 def save_model_as_json(text_model, file_name):
 	model_json = text_model.to_json()
@@ -85,7 +86,7 @@ def save_model_as_json(text_model, file_name):
 		json.dump(model_json, outfile)
 
 def load_model_from_json(file_name):
-	logging.info("Opening model: {}".format(file_name))
+	logger.info("Opening model: {}".format(file_name))
 	with open('docs\\models\\' + file_name + '.json') as json_file:
 		return MarkovPT.from_json(json.load(json_file))
 
@@ -115,10 +116,11 @@ def get_guimaraes():
 flawed_utf_patt = re.compile(r'\\x\.*')
 quote_patt = re.compile("\"")
 space_patt = re.compile(r'\s+')
-n_bug_patt = re.compile(r'\sn\s')
-d_bug_patt = re.compile(r'\sd\s')
-a_bug_patt = re.compile(r'\sà\ss\s')
-ao_bug_patt = re.compile(r'\sa\so\s')
+n_patt = re.compile(r'\sn\s')
+d_patt = re.compile(r'\sd\s')
+a_patt = re.compile(r'\sà\ss\s')
+ao_patt = re.compile(r'\sa\so\s')
+aos_patt = re.compile(r'\sa\sos\s')
 
 def choose_model():
 	model_name = random.choice(MODELS)
@@ -129,16 +131,17 @@ def format_msg(msg, model_name):
 	msg = re.sub(space_patt, " ", msg)
 	msg = re.sub(flawed_utf_patt, "", msg)
 	msg = re.sub(quote_patt,"", msg)
-	msg = re.sub(n_bug_patt," n", msg)
-	msg = re.sub(d_bug_patt," d", msg)
-	msg = re.sub(a_bug_patt," às ", msg)
-	msg = re.sub(ao_bug_patt," ao ", msg)
+	msg = re.sub(n_patt," n", msg)
+	msg = re.sub(d_patt," d", msg)
+	msg = re.sub(a_patt," às ", msg)
+	msg = re.sub(ao_patt," ao ", msg)
+	msg = re.sub(aos_patt," aos ", msg)
 	msg = re.sub(u'\\s([?\\.!,;"](?:\\s|$))', r'\1', msg)
-	msg = "\"{}\"\n\t— {}\n#livros #literatura".format(msg, FULL_NAME[model_name])
+	msg = "\"{}\"\n— {}\n#livros #cultura".format(msg, FULL_NAME[model_name])
 	return msg
 
 def make_message(model, model_name):
-	logging.info("Generating sentence: {}".format(model_name))
+	logger.info("Generating sentence: {}".format(model_name))
 	min_size = 200
 	max_size = 240
 	entire_sentence = ""
@@ -163,26 +166,41 @@ def make_message(model, model_name):
 	return entire_sentence
 
 def login():
-	logging.info("Logging in...")
+	logger.info("Logging in...")
 	auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 	auth.set_access_token(ACCESS_TOKEN_KEY, ACCESS_TOKEN_SECRET)
 	api = tweepy.API(auth, wait_on_rate_limit=True,
-    	wait_on_rate_limit_notify=True)
+		wait_on_rate_limit_notify=True)
 	try:
 		api.verify_credentials()
 	except Exception as e:
-		logging.critical(e)
-	logging.info("Logging succesful!")
+		logger.critical(e)
+	logger.info("Logging succesful!")
 	return api
 
-def make_post():
-	logging.info("Inside make_post")
-	api = login()
+def make_post(api):
+	logger.info("Inside make_post")
+	
 	model, model_name = choose_model()
 	msg = make_message(model, model_name)
-	logging.info("Message:\n{}".format(msg))
+	logger.info("Message:\n{}".format(msg))
 	api.update_status(msg)
 	db.add_to(msg)
+
+def follow_followers(api):
+	logger.info("Retrieving and following followers")
+	for follower in tweepy.Cursor(api.followers).items():
+		if not follower.following:
+			logger.info(f"Following {follower.name}")
+			follower.follow()
+
+def main():
+	logger.info("Initiating main method")
+	api = login()
+	make_post(api)
+	follow_followers(api)
+
+	
 
 ################################################################
 #unit tests, uncomment to run
@@ -208,7 +226,8 @@ def test_login():
 		print(follower.name)
 
 def test_make_post():
-	make_post()
+	api = login()
+	make_post(api)
 	db.show_content()
 
 #test_each_model()
@@ -216,5 +235,5 @@ def test_make_post():
 #test_make_post()
 
 
-make_post()
+main()
 time.sleep(5)
