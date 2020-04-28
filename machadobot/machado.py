@@ -7,6 +7,7 @@ from os import path
 logging.basicConfig(filename="docs\\log.log", level=logging.INFO,
 					filemode="w")
 logger = logging.getLogger()
+logger.info(datetime.datetime.now())
 
 #first we read the configurations from the config file and set them
 with open("config.json") as json_data_file:
@@ -19,6 +20,9 @@ ACCESS_TOKEN_KEY= data["SETTINGS"]["access_token_key"]
 ACCESS_TOKEN_SECRET= data["SETTINGS"]["access_token_secret"]
 DB = data["SETTINGS"]["database"]
 MODELS = data["SETTINGS"]["models"]
+MAX_FAVS = data["SETTINGS"]["favsinrun"]
+HASHTAGS = data["SETTINGS"]["hashtags"]
+AVOID = data["SETTINGS"]["avoidthose"]
 FULL_NAME = {
 	"Machado" : 'Machado de Assis',
 	"Sabino" : 'Fernando Sabino',
@@ -111,7 +115,7 @@ def get_guimaraes():
 	return load_model_from_json('Rosa')
 
 ################################################################
-#Methods for logging, using the api and making posts.
+#Methods for creating the messages
 ################################################################
 flawed_utf_patt = re.compile(r'\\x\.*')
 quote_patt = re.compile("\"")
@@ -137,7 +141,9 @@ def format_msg(msg, model_name):
 	msg = re.sub(ao_patt," ao ", msg)
 	msg = re.sub(aos_patt," aos ", msg)
 	msg = re.sub(u'\\s([?\\.!,;"](?:\\s|$))', r'\1', msg)
-	msg = "\"{}\"\n— {}\n#livros #cultura".format(msg, FULL_NAME[model_name])
+	hashtags = random.sample(HASHTAGS, 2)
+	msg = "\"{}\"\n— {}\n#{} #{}".format(msg, FULL_NAME[model_name],
+			hashtags[0], hashtags[1])
 	return msg
 
 def make_message(model, model_name):
@@ -164,6 +170,39 @@ def make_message(model, model_name):
 	# we remove them and do some more formatting
 	entire_sentence = format_msg(entire_sentence, model_name)
 	return entire_sentence
+
+################################################################
+#Methods for logging in, posting, favoriting and following
+################################################################
+class FavListener(tweepy.StreamListener):
+	def __init__(self, api, favs=MAX_FAVS):
+		self.api = api
+		self.me = api.me()
+		self.num_tweets = 0
+		self.max_favs = favs
+
+	def on_status(self, tweet):
+		logger.info(f"Processing tweet id {tweet.id}")
+		if tweet.in_reply_to_status_id is not None or \
+			tweet.user.id == self.me.id:
+			# This tweet is a reply or I'm its author so, ignore it
+			return
+		if not tweet.favorited:
+			# Mark it as Liked, since we have not done it yet
+			logger.info(f"Liking tweet with id {tweet.id}")
+			for word in AVOID:
+       			#lower() so i only need to list words in lowercase
+				if word in tweet.text.lower():
+					logger.info("The following tweet had a"\
+         				" banned word:\n{}".format(tweet.text.lower()))
+					return #don't do anything if the tweet is polemic
+			try:
+				tweet.favorite()
+				self.num_tweets += 1
+			except Exception as e:
+				logger.critical(e)
+		if self.num_tweets >= self.max_favs:
+			return False #this should stop the stream
 
 def login():
 	logger.info("Logging in...")
@@ -195,11 +234,18 @@ def follow_followers(api):
 			follower.follow()
 
 def main():
+	logging.info(datetime.datetime.now())
 	logger.info("Initiating main method")
 	api = login()
 	make_post(api)
 	follow_followers(api)
-
+	#creates a listener object to fav tweets
+	tweets_listener = FavListener(api)
+	stream = tweepy.Stream(api.auth, tweets_listener)
+	stream.filter(track=HASHTAGS, languages=["pt"])
+	stream.disconnect()
+	logger.info("End of script")
+	logger.info(datetime.datetime.now())
 	
 
 ################################################################
@@ -221,7 +267,7 @@ def test_login():
 	print(user.description)
 	print(user.location)
 
-	print("Last 20 Followers:")
+	print("Followers:")
 	for follower in user.followers():
 		print(follower.name)
 
@@ -236,4 +282,3 @@ def test_make_post():
 
 
 main()
-time.sleep(5)
