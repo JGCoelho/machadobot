@@ -1,4 +1,4 @@
-You will need to create an file named config.json with the following content:
+You will need to create an file named config.json with the following content on the root folder:
 
 ```json
 {
@@ -8,11 +8,17 @@ You will need to create an file named config.json with the following content:
         "access_token_key" : "TOKEN KEY",
         "access_token_secret" : "TOKEN SECRET",
         "database" : "docs\\db.db",
-        "model": "models\\default.json"
+        "models" : ["default.json"],
+        "hashtags" : ["quotes"],
+        "avoidthose" : ["polit"],
+        "favsinrun" : 10
     }
 }
 ```
 
-Put your credentials in the fields and leave the file in the folder.
+Put your credentials in the fields, change the lists the values you want for the lists and leave the file in the folder.
 
-Then create a database by running "touch db.db" inside of the docs folder.
+You don't need to create a database manually, as sqlite3 will create a database if there isn't one. To make the runbat work, change the lines
+set root = C:\Users\JGC\Desktop\Trabalhos\Python\Machadobot
+and start C:\Users\JGC\anaconda3\pythonw.exe
+to your the locations of the folder on your machine and your python.exe file location.
