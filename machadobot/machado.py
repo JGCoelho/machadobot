@@ -9,6 +9,7 @@ import sqlite3
 import re
 import random
 import logging
+import sys
 # from os import path
 
 logging.basicConfig(filename="docs\\log.log", level=logging.INFO,
@@ -39,7 +40,7 @@ FULL_NAME = \
      "Clarice": 'Clarice Lispector',
      "Graciliano": 'Graciliano Ramos',
      "Lobato": 'Monteiro Lobato'}
-
+NON_BMP_MAP = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
 # we have a sqlite3 database db.db for the posts
 # "CREATE TABLE posts (id INTEGER PRIMARY KEY, body TEXT, date INTEGER)"
 # there we store all the posts the bot has sucessfully made
@@ -141,14 +142,16 @@ def get_guimaraes():
 ################################################################
 # Methods for creating the messages
 ################################################################
+new_line_patt = re.compile(r'\n')
+space_patt = re.compile(r'\s+')
 flawed_utf_patt = re.compile(r'\\x\.*')
 quote_patt = re.compile("\"")
-space_patt = re.compile(r'\s+')
 n_patt = re.compile(r'\sn\s')
 d_patt = re.compile(r'\sd\s')
 a_patt = re.compile(r'\sà\ss\s')
 ao_patt = re.compile(r'\sa\so\s')
 aos_patt = re.compile(r'\sa\sos\s')
+dots_patt = re.compile(r'\s\.\.\.')
 
 
 def choose_model():
@@ -158,6 +161,7 @@ def choose_model():
 
 
 def format_msg(msg, model_name):
+    msg = re.sub(new_line_patt, " ", msg)
     msg = re.sub(space_patt, " ", msg)
     msg = re.sub(flawed_utf_patt, "", msg)
     msg = re.sub(quote_patt, "", msg)
@@ -166,6 +170,7 @@ def format_msg(msg, model_name):
     msg = re.sub(a_patt, " às ", msg)
     msg = re.sub(ao_patt, " ao ", msg)
     msg = re.sub(aos_patt, " aos ", msg)
+    msg = re.sub(dots_patt, "...", msg)
     msg = re.sub(u'\\s([?\\.!,;"](?:\\s|$))', r'\1', msg)
     hashtags = random.sample(HASHTAGS, 2)
     msg = "\"{}\"\n— {}\n#{} #{}".format(
@@ -175,7 +180,7 @@ def format_msg(msg, model_name):
 
 def make_message(model, model_name):
     logger.info("Generating sentence: {}".format(model_name))
-    min_size = 200
+    min_size = 170
     max_size = 240
     entire_sentence = ""
 
@@ -262,8 +267,16 @@ def follow_followers(api):
     logger.info("Retrieving and following followers")
     for follower in tweepy.Cursor(api.followers).items():
         if not follower.following:
-            logger.info(f"Following {follower.name}")
-            follower.follow()
+            try:
+                logger.info("Following {}".format(
+                    follower.name.translate(
+                        NON_BMP_MAP)))
+            except Exception as e:
+                logger.info(e)
+            try:
+                follower.follow()
+            except tweepy.error.TweepError:
+                pass
 
 
 def main():
